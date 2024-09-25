@@ -8,7 +8,7 @@ property_types = [
 ]
 
 st.title("Notion API Properties JSON Builder")
-
+st.logo('icon.png')
 st.header("Configure Database Properties")
 
 # Initialize property list in session state
@@ -200,10 +200,10 @@ for idx, prop in enumerate(st.session_state['property_list']):
                     "phone_number": phone_value
                 }
 
-st.header("Generated Properties JSON")
+st.subheader("Generated Properties JSON")
 st.json(properties_json)
 
-# Section for appending blocks
+st.divider()
 st.header("Construct Notion Blocks")
 
 block_types = [
@@ -327,5 +327,5 @@ for idx, block in enumerate(st.session_state['block_list']):
             })
         # Implement other block types as needed
 
-st.header("Generated Blocks JSON")
+st.subheader("Generated Blocks JSON")
 st.json(blocks)
