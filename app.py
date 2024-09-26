@@ -208,7 +208,7 @@ st.header("Construct Notion Blocks")
 
 block_types = [
     'Paragraph', 'Heading 1', 'Heading 2', 'Heading 3', 'Bulleted List',
-    'Numbered List', 'To-do', 'Toggle'
+    'Numbered List', 'To-do', 'Toggle', 'Code'
 ]
 
 # Initialize block list in session state
@@ -246,7 +246,11 @@ for idx, block in enumerate(st.session_state['block_list']):
                         "type": "text",
                         "text": {
                             "content": content
-                        }
+                        },
+                            'annotations': {'bold': False,
+                                'underline': False,
+                                'code': False,
+                                'color': 'default'},
                     }]
                 }
             })
@@ -261,7 +265,11 @@ for idx, block in enumerate(st.session_state['block_list']):
                         "type": "text",
                         "text": {
                             "content": content
-                        }
+                        },
+                        'annotations': {'bold': False,
+                                'underline': False,
+                                'code': False,
+                                'color': 'default'},
                     }]
                 }
             })
@@ -322,10 +330,38 @@ for idx, block in enumerate(st.session_state['block_list']):
                             "content": content
                         }
                     }],
-                    "children": []  # Add nested blocks if needed
+                    "children": [
+                                    {
+                                        "type": "paragraph",
+                                        "paragraph": {
+                                            "rich_text": [
+                                                {
+                                                    "type": "text",
+                                                    "text": {"content": "Text Body Here"},
+                                                }
+                                            ]
+                                        },
+                                    }
+                                ],  # Add nested blocks if needed
                 }
             })
+        elif block_type == 'Code':
+            blocks.append({
+                "type": "code",
+                "code": {
+                    "caption": [],
+                        "rich_text": [{
+                    "type": "text",
+                    "text": {
+                        "content": content
+                    }
+                    }],
+                    "language": "python"
+                }
+                })
         # Implement other block types as needed
+
+
 
 st.subheader("Generated Blocks JSON")
 st.json(blocks)
