@@ -239,6 +239,11 @@ elif pages == "Construct Notion Blocks":
         'Numbered List', 'To-do', 'Toggle', 'Code'
     ]
 
+    notion_colors = [
+        'default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue',
+        'purple', 'pink', 'red'
+    ]
+
     # Initialize block list in session state
     if 'block_list' not in st.session_state:
         st.session_state['block_list'] = []
@@ -256,6 +261,18 @@ elif pages == "Construct Notion Blocks":
             st.selectbox("Select block type", block_types, key=block_type_key)
             st.text_area("Enter content (use new lines for lists)", key=content_key)
 
+            # Toggle options for annotations
+            bold_key = f"bold_{idx}"
+            underline_key = f"underline_{idx}"
+            code_key = f"code_{idx}"
+            st.checkbox("Bold", key=bold_key)
+            st.checkbox("Underline", key=underline_key)
+            st.checkbox("Code", key=code_key)
+
+            # Dropdown for color selection
+            color_key = f"color_{idx}"
+            st.selectbox("Select text color", notion_colors, key=color_key)
+
     # Generate blocks JSON automatically
     blocks = []
     for idx, block in enumerate(st.session_state['block_list']):
@@ -265,6 +282,13 @@ elif pages == "Construct Notion Blocks":
         content = st.session_state.get(content_key)
 
         if content:
+            annotations = {
+                'bold': st.session_state.get(f"bold_{idx}", False),
+                'underline': st.session_state.get(f"underline_{idx}", False),
+                'code': st.session_state.get(f"code_{idx}", False),
+                'color': st.session_state.get(f"color_{idx}", 'default')
+            }
+
             if block_type == 'Paragraph':
                 blocks.append({
                     "object": "block",
@@ -275,10 +299,7 @@ elif pages == "Construct Notion Blocks":
                             "text": {
                                 "content": content
                             },
-                                'annotations': {'bold': False,
-                                    'underline': False,
-                                    'code': False,
-                                    'color': 'default'},
+                            'annotations': annotations
                         }]
                     }
                 })
@@ -294,10 +315,7 @@ elif pages == "Construct Notion Blocks":
                             "text": {
                                 "content": content
                             },
-                            'annotations': {'bold': False,
-                                    'underline': False,
-                                    'code': False,
-                                    'color': 'default'},
+                            'annotations': annotations
                         }]
                     }
                 })
@@ -359,18 +377,19 @@ elif pages == "Construct Notion Blocks":
                             }
                         }],
                         "children": [
+                            {
+                                "type": "paragraph",
+                                "paragraph": {
+                                    "rich_text": [
                                         {
-                                            "type": "paragraph",
-                                            "paragraph": {
-                                                "rich_text": [
-                                                    {
-                                                        "type": "text",
-                                                        "text": {"content": "Text Body Here"},
-                                                    }
-                                                ]
-                                            },
+                                            "type": "text",
+                                            "text": {"content": "Text Body Here"},
+                                            'annotations': annotations
                                         }
-                                    ],  # Add nested blocks if needed
+                                    ]
+                                },
+                            }
+                        ],  # Add nested blocks if needed
                     }
                 })
             elif block_type == 'Code':
@@ -378,18 +397,16 @@ elif pages == "Construct Notion Blocks":
                     "type": "code",
                     "code": {
                         "caption": [],
-                            "rich_text": [{
-                        "type": "text",
-                        "text": {
-                            "content": content
-                        }
+                        "rich_text": [{
+                            "type": "text",
+                            "text": {
+                                "content": content
+                            }
                         }],
                         "language": "python"
                     }
-                    })
+                })
             # Implement other block types as needed
-
-
 
     st.subheader("Generated Blocks JSON")
     st.json(blocks)
