@@ -26,7 +26,7 @@ pages = ui.tabs(
 )
 
 if pages == "About":
-    st.header("About")
+    st.header(":material/info: About")
     st.write("Welcome to the **Notion API JSON Builder!**")
     st.write("This humble little app is here to help you tackle one of the trickiest parts of working with the Notion API—constructing complex JSON structures. Whether you’re configuring properties for your Notion databases or building dynamic blocks to append to your pages, this app simplifies the process.")
     st.write("With a user-friendly interface, you can easily set up properties like titles, text, numbers, and more, or generate blocks like headings, lists, and to-dos. No more guesswork when building JSON for Notion!")
@@ -37,7 +37,7 @@ if pages == "About":
 
 elif pages == "Configure Database Properties":
 
-    st.header("Configure Database Properties")
+    st.header(":material/check_box: Configure Database Properties")
 
     # Initialize property list in session state
     if 'property_list' not in st.session_state:
@@ -228,12 +228,12 @@ elif pages == "Configure Database Properties":
                         "phone_number": phone_value
                     }
 
-    st.subheader("Generated Properties JSON")
+    st.subheader(":material/code_blocks: Generated Properties JSON")
     with st.container(height=300, border=True):
         st.json(properties_json)
 
 elif pages == "Construct Notion Blocks":
-    st.header("Construct Notion Blocks")
+    st.header(":material/check_box: Construct Notion Blocks")
 
     block_types = [
         'Paragraph', 'Heading 1', 'Heading 2', 'Heading 3', 'Bulleted List',
@@ -409,6 +409,6 @@ elif pages == "Construct Notion Blocks":
                 })
             # Implement other block types as needed
 
-    st.subheader("Generated Blocks JSON")
+    st.subheader(":material/code_blocks: Generated Blocks JSON")
     with st.container(height=300, border=True):
         st.json(blocks)
