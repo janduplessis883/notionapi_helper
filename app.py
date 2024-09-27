@@ -229,7 +229,8 @@ elif pages == "Configure Database Properties":
                     }
 
     st.subheader("Generated Properties JSON")
-    st.json(properties_json)
+    with st.container(height=300, border=True):
+        st.json(properties_json)
 
 elif pages == "Construct Notion Blocks":
     st.header("Construct Notion Blocks")
@@ -409,4 +410,5 @@ elif pages == "Construct Notion Blocks":
             # Implement other block types as needed
 
     st.subheader("Generated Blocks JSON")
-    st.json(blocks)
+    with st.container(height=300, border=True):
+        st.json(blocks)
