@@ -10,5 +10,7 @@ Our goal is to make your life easier when working with Notion, whether you’re 
 
 Give it a try, and happy building!
 
-<a href="https://notioinapiassistant.streamlit.app"><img alt="Static Badge" src="https://img.shields.io/badge/streamlit-Open%20in%20Streamlit-%23f09235?logo=streamlit"></a>
+<a href="https://notioinapiassistant.streamlit.app" target="_blank">
+    <img alt="Static Badge" src="https://img.shields.io/badge/streamlit-Open%20in%20Streamlit-%23f09235?logo=streamlit">
+</a>
 
