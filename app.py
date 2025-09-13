@@ -44,7 +44,9 @@ elif pages == "Configure Database Properties":
         st.session_state['property_list'] = []
 
     # Button to add a new property
-    if st.button("Add Property"):
+    st.sidebar.subheader(("Database Properties"))
+    st.sidebar.caption("Add and configure properties for your Notion database. JSON is updated every time you press 'Add Property'")
+    if st.sidebar.button("Add Property", type="primary"):
         st.session_state['property_list'].append({'type': None, 'name': None})
 
     # Display property inputs
@@ -227,10 +229,13 @@ elif pages == "Configure Database Properties":
                     properties_json[prop_name] = {
                         "phone_number": phone_value
                     }
-
+    st.divider()
     st.subheader(":material/code_blocks: Generated Properties JSON")
     with st.container(height=300, border=True):
         st.json(properties_json)
+
+    st.write("**Code** for easy copy")
+    st.code(properties_json, language='json', line_numbers=True, wrap_lines=True)
 
 elif pages == "Construct Notion Blocks":
     st.header(":material/check_box: Construct Notion Blocks")
@@ -250,7 +255,9 @@ elif pages == "Construct Notion Blocks":
         st.session_state['block_list'] = []
 
     # Button to add a new block
-    if st.button("Add Block"):
+    st.sidebar.subheader(("Page Blocks"))
+    st.sidebar.caption("Add and configure blocks for your Notion Pages. JSON is updated every time you press 'Add Block'")
+    if st.sidebar.button("Add Block", type="primary"):
         st.session_state['block_list'].append({'type': None, 'content': None})
 
     # Display block inputs
@@ -408,7 +415,9 @@ elif pages == "Construct Notion Blocks":
                     }
                 })
             # Implement other block types as needed
-
+    st.divider()
     st.subheader(":material/code_blocks: Generated Blocks JSON")
     with st.container(height=300, border=True):
         st.json(blocks)
+    st.write("**Code** for easy copy")
+    st.code(blocks, language='json', line_numbers=True, wrap_lines=True)
