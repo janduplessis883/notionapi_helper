@@ -1,12 +1,145 @@
 import streamlit as st
-import datetime
+import json
 import streamlit_shadcn_ui as ui
 
-# Define possible property types
-property_types = [
-    'Title', 'Rich Text', 'Number', 'Select', 'Multi-select', 'Date', 'Checkbox',
-    'URL', 'Email', 'Phone Number'
+PROPERTY_TYPES = {
+    "Title": "title",
+    "Rich Text": "rich_text",
+    "Number": "number",
+    "Select": "select",
+    "Multi-select": "multi_select",
+    "Date": "date",
+    "Checkbox": "checkbox",
+    "URL": "url",
+    "Email": "email",
+    "Phone Number": "phone_number",
+    "Files": "files",
+    "People": "people",
+    "Status": "status",
+    "Formula": "formula",
+    "Relation": "relation",
+    "Rollup": "rollup",
+    "Unique ID": "unique_id",
+    "Created By": "created_by",
+    "Created Time": "created_time",
+    "Last Edited By": "last_edited_by",
+    "Last Edited Time": "last_edited_time",
+    "Button": "button",
+    "Location": "location",
+    "Verification": "verification",
+    "Last Visited Time": "last_visited_time",
+    "Place": "place",
+}
+
+EMPTY_SCHEMA_TYPES = {
+    "title",
+    "rich_text",
+    "date",
+    "checkbox",
+    "url",
+    "email",
+    "phone_number",
+    "files",
+    "people",
+    "created_by",
+    "created_time",
+    "last_edited_by",
+    "last_edited_time",
+    "button",
+    "location",
+    "verification",
+    "last_visited_time",
+    "place",
+}
+
+NUMBER_FORMATS = [
+    "number", "number_with_commas", "percent", "dollar", "euro", "pound", "yen",
+    "yuan", "won", "ruble", "rupee", "franc", "real", "lira", "krona",
+    "ringgit", "baht", "rupiah", "peso", "rand", "new_zealand_dollar",
+    "danish_krone", "norwegian_krone", "swedish_krona", "singapore_dollar",
+    "hong_kong_dollar", "australian_dollar", "canadian_dollar",
 ]
+
+NOTION_COLORS = [
+    "default", "gray", "brown", "orange", "yellow", "green", "blue",
+    "purple", "pink", "red",
+]
+
+STATUS_GROUPS = ["To-do", "In progress", "Complete"]
+
+ROLLUP_FUNCTIONS = [
+    "average", "checked", "count", "count_values", "date_range",
+    "earliest_date", "empty", "latest_date", "max", "median", "min",
+    "not_empty", "percent_checked", "percent_empty", "percent_not_empty",
+    "percent_unchecked", "range", "show_original", "show_unique", "sum",
+    "unchecked", "unique",
+]
+
+
+def parse_options(raw_options, include_status_groups=False):
+    options = []
+    for raw_option in raw_options.splitlines():
+        parts = [part.strip() for part in raw_option.split("|")]
+        name = parts[0] if parts else ""
+        if not name:
+            continue
+
+        option = {"name": name}
+        if len(parts) > 1 and parts[1] in NOTION_COLORS:
+            option["color"] = parts[1]
+        if include_status_groups and len(parts) > 2 and parts[2] in STATUS_GROUPS:
+            option["group"] = parts[2]
+        options.append(option)
+    return options
+
+
+def build_property_schema(prop_type, idx):
+    notion_type = PROPERTY_TYPES[prop_type]
+
+    if notion_type in EMPTY_SCHEMA_TYPES:
+        return {notion_type: {}}
+
+    if notion_type == "number":
+        number_format = st.session_state.get(f"number_format_{idx}", "number")
+        return {"number": {"format": number_format}}
+
+    if notion_type in {"select", "multi_select"}:
+        options = parse_options(st.session_state.get(f"{notion_type}_options_{idx}", ""))
+        return {notion_type: {"options": options} if options else {}}
+
+    if notion_type == "status":
+        options = parse_options(st.session_state.get(f"status_options_{idx}", ""), include_status_groups=True)
+        return {"status": {"options": options} if options else {}}
+
+    if notion_type == "formula":
+        expression = st.session_state.get(f"formula_expression_{idx}", "").strip()
+        return {"formula": {"expression": expression} if expression else {}}
+
+    if notion_type == "relation":
+        data_source_id = st.session_state.get(f"relation_data_source_id_{idx}", "").strip()
+        if data_source_id:
+            return {"relation": {"data_source_id": data_source_id}}
+        return {"relation": {}}
+
+    if notion_type == "rollup":
+        rollup = {}
+        for field in [
+            "relation_property_name",
+            "relation_property_id",
+            "rollup_property_name",
+            "rollup_property_id",
+        ]:
+            value = st.session_state.get(f"rollup_{field}_{idx}", "").strip()
+            if value:
+                rollup[field] = value
+        rollup["function"] = st.session_state.get(f"rollup_function_{idx}", "count")
+        return {"rollup": rollup}
+
+    if notion_type == "unique_id":
+        prefix = st.session_state.get(f"unique_id_prefix_{idx}", "").strip()
+        return {"unique_id": {"prefix": prefix} if prefix else {}}
+
+    return {notion_type: {}}
 st.set_page_config(
     page_title="Notion API - JSON Builder",
     page_icon=":orange_heart:"
@@ -38,6 +171,11 @@ if pages == "About":
 elif pages == "Configure Database Properties":
 
     st.header(":material/check_box: Configure Database Properties")
+    st.caption(
+        "Build the `properties` object for a Notion data source or database schema. "
+        "Page values belong in the `properties` object when creating pages, not here. "
+        "Notion's latest documented API version is `2026-03-11`."
+    )
 
     # Initialize property list in session state
     if 'property_list' not in st.session_state:
@@ -57,55 +195,47 @@ elif pages == "Configure Database Properties":
             prop_name_key = f"prop_name_{idx}"
 
             # Select property type
-            prop_type = st.selectbox("Select property type", property_types, key=prop_type_key)
+            prop_type = st.selectbox("Select property type", list(PROPERTY_TYPES.keys()), key=prop_type_key)
             prop_name = st.text_input(f"Enter the property name for {prop_type}", key=prop_name_key)
 
             # Based on property type, display appropriate inputs
-            if prop_type == 'Title':
-                title_content_key = f"title_content_{idx}"
-                st.text_input("Enter the title content", key=title_content_key)
-            elif prop_type == 'Rich Text':
-                rich_text_content_key = f"rich_text_content_{idx}"
-                st.text_input("Enter the rich text content", key=rich_text_content_key)
+            notion_type = PROPERTY_TYPES[prop_type]
+            if notion_type in EMPTY_SCHEMA_TYPES:
+                st.caption("No schema configuration is required for this property type.")
             elif prop_type == 'Number':
-                number_value_key = f"number_value_{idx}"
-                st.number_input("Enter the number value", key=number_value_key)
-            elif prop_type == 'Select':
-                option_name_key = f"select_option_{idx}"
-                st.text_input("Enter the option name", key=option_name_key)
-            elif prop_type == 'Multi-select':
-                options_key = f"multi_select_options_{idx}"
-                st.text_input("Enter options separated by commas", key=options_key)
-            elif prop_type == 'Date':
-                start_date_key = f"start_date_{idx}"
-                include_time_key = f"include_time_{idx}"
-                include_end_date_key = f"include_end_date_{idx}"
-                end_date_key = f"end_date_{idx}"
-                start_time_key = f"start_time_{idx}"
-                end_time_key = f"end_time_{idx}"
-
-                st.date_input("Select start date", key=start_date_key)
-                st.checkbox("Include time?", key=include_time_key)
-                if st.session_state.get(include_time_key):
-                    st.time_input("Select start time", key=start_time_key)
-                st.checkbox("Include end date?", key=include_end_date_key)
-                if st.session_state.get(include_end_date_key):
-                    st.date_input("Select end date", key=end_date_key)
-                    if st.session_state.get(include_time_key):
-                        st.time_input("Select end time", key=end_time_key)
-            elif prop_type == 'Checkbox':
-                checkbox_value_key = f"checkbox_value_{idx}"
-                st.checkbox("Check if true", key=checkbox_value_key)
-            elif prop_type == 'URL':
-                url_value_key = f"url_value_{idx}"
-                st.text_input("Enter the URL", key=url_value_key)
-            elif prop_type == 'Email':
-                email_value_key = f"email_value_{idx}"
-                st.text_input("Enter the email", key=email_value_key)
-            elif prop_type == 'Phone Number':
-                phone_value_key = f"phone_value_{idx}"
-                st.text_input("Enter the phone number", key=phone_value_key)
-            # Add other property types as needed
+                st.selectbox("Number format", NUMBER_FORMATS, key=f"number_format_{idx}")
+            elif prop_type in {'Select', 'Multi-select'}:
+                st.text_area(
+                    "Options (one per line, optionally `Name | color`)",
+                    key=f"{notion_type}_options_{idx}",
+                    placeholder="Priority | red\nWaiting | yellow\nDone | green",
+                )
+            elif prop_type == 'Status':
+                st.text_area(
+                    "Status options (one per line, optionally `Name | color | group`)",
+                    key=f"status_options_{idx}",
+                    placeholder="Not started | gray | To-do\nIn review | yellow | In progress\nDone | green | Complete",
+                )
+            elif prop_type == 'Formula':
+                st.text_input(
+                    "Formula expression",
+                    key=f"formula_expression_{idx}",
+                    placeholder='prop("Price") * prop("Quantity")',
+                )
+            elif prop_type == 'Relation':
+                st.text_input(
+                    "Related data source ID",
+                    key=f"relation_data_source_id_{idx}",
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                )
+            elif prop_type == 'Rollup':
+                st.text_input("Relation property name", key=f"rollup_relation_property_name_{idx}")
+                st.text_input("Relation property ID", key=f"rollup_relation_property_id_{idx}")
+                st.text_input("Rollup property name", key=f"rollup_rollup_property_name_{idx}")
+                st.text_input("Rollup property ID", key=f"rollup_rollup_property_id_{idx}")
+                st.selectbox("Rollup function", ROLLUP_FUNCTIONS, key=f"rollup_function_{idx}")
+            elif prop_type == 'Unique ID':
+                st.text_input("Prefix", key=f"unique_id_prefix_{idx}", placeholder="TASK")
 
     # Generate the properties JSON automatically
     properties_json = {}
@@ -116,126 +246,14 @@ elif pages == "Configure Database Properties":
         prop_name = st.session_state.get(prop_name_key)
 
         if prop_name and prop_type:
-            if prop_type == 'Title':
-                title_content_key = f"title_content_{idx}"
-                title_content = st.session_state.get(title_content_key, '')
-                if title_content:
-                    properties_json[prop_name] = {
-                        "title": [
-                            {
-                                "text": {
-                                    "content": title_content
-                                }
-                            }
-                        ]
-                    }
-            elif prop_type == 'Rich Text':
-                rich_text_content_key = f"rich_text_content_{idx}"
-                rich_text_content = st.session_state.get(rich_text_content_key, '')
-                if rich_text_content:
-                    properties_json[prop_name] = {
-                        "rich_text": [
-                            {
-                                "text": {
-                                    "content": rich_text_content
-                                }
-                            }
-                        ]
-                    }
-            elif prop_type == 'Number':
-                number_value_key = f"number_value_{idx}"
-                number_value = st.session_state.get(number_value_key)
-                if number_value is not None:
-                    properties_json[prop_name] = {
-                        "number": number_value
-                    }
-            elif prop_type == 'Select':
-                option_name_key = f"select_option_{idx}"
-                option_name = st.session_state.get(option_name_key, '')
-                if option_name:
-                    properties_json[prop_name] = {
-                        "select": {
-                            "name": option_name
-                        }
-                    }
-            elif prop_type == 'Multi-select':
-                options_key = f"multi_select_options_{idx}"
-                options = st.session_state.get(options_key, '')
-                if options:
-                    options_list = [opt.strip() for opt in options.split(',')]
-                    properties_json[prop_name] = {
-                        "multi_select": [{"name": opt} for opt in options_list]
-                    }
-            elif prop_type == 'Date':
-                start_date_key = f"start_date_{idx}"
-                include_time_key = f"include_time_{idx}"
-                include_end_date_key = f"include_end_date_{idx}"
-                end_date_key = f"end_date_{idx}"
-                start_time_key = f"start_time_{idx}"
-                end_time_key = f"end_time_{idx}"
-
-                start_date = st.session_state.get(start_date_key)
-                include_time = st.session_state.get(include_time_key)
-                include_end_date = st.session_state.get(include_end_date_key)
-                date_value = {}
-
-                if start_date:
-                    if include_time:
-                        start_time = st.session_state.get(start_time_key)
-                        if start_time:
-                            date_value["start"] = datetime.datetime.combine(start_date, start_time).isoformat()
-                        else:
-                            date_value["start"] = start_date.isoformat()
-                    else:
-                        date_value["start"] = start_date.isoformat()
-                    if include_end_date:
-                        end_date = st.session_state.get(end_date_key)
-                        if end_date:
-                            if include_time:
-                                end_time = st.session_state.get(end_time_key)
-                                if end_time:
-                                    date_value["end"] = datetime.datetime.combine(end_date, end_time).isoformat()
-                                else:
-                                    date_value["end"] = end_date.isoformat()
-                            else:
-                                date_value["end"] = end_date.isoformat()
-                    properties_json[prop_name] = {
-                        "date": date_value
-                    }
-            elif prop_type == 'Checkbox':
-                checkbox_value_key = f"checkbox_value_{idx}"
-                checkbox_value = st.session_state.get(checkbox_value_key, False)
-                properties_json[prop_name] = {
-                    "checkbox": checkbox_value
-                }
-            elif prop_type == 'URL':
-                url_value_key = f"url_value_{idx}"
-                url_value = st.session_state.get(url_value_key, '')
-                if url_value:
-                    properties_json[prop_name] = {
-                        "url": url_value
-                    }
-            elif prop_type == 'Email':
-                email_value_key = f"email_value_{idx}"
-                email_value = st.session_state.get(email_value_key, '')
-                if email_value:
-                    properties_json[prop_name] = {
-                        "email": email_value
-                    }
-            elif prop_type == 'Phone Number':
-                phone_value_key = f"phone_value_{idx}"
-                phone_value = st.session_state.get(phone_value_key, '')
-                if phone_value:
-                    properties_json[prop_name] = {
-                        "phone_number": phone_value
-                    }
+            properties_json[prop_name] = build_property_schema(prop_type, idx)
     st.divider()
     st.subheader(":material/code_blocks: Generated Properties JSON")
     with st.container(height=300, border=True):
         st.json(properties_json)
 
     st.write("**Code** for easy copy")
-    st.code(properties_json, language='json', line_numbers=True, wrap_lines=True)
+    st.code(json.dumps(properties_json, indent=2), language='json', line_numbers=True, wrap_lines=True)
 
 elif pages == "Construct Notion Blocks":
     st.header(":material/check_box: Construct Notion Blocks")
@@ -243,11 +261,6 @@ elif pages == "Construct Notion Blocks":
     block_types = [
         'Paragraph', 'Heading 1', 'Heading 2', 'Heading 3', 'Bulleted List',
         'Numbered List', 'To-do', 'Toggle', 'Code'
-    ]
-
-    notion_colors = [
-        'default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue',
-        'purple', 'pink', 'red'
     ]
 
     # Initialize block list in session state
@@ -271,15 +284,19 @@ elif pages == "Construct Notion Blocks":
 
             # Toggle options for annotations
             bold_key = f"bold_{idx}"
+            italic_key = f"italic_{idx}"
+            strikethrough_key = f"strikethrough_{idx}"
             underline_key = f"underline_{idx}"
             code_key = f"code_{idx}"
             st.checkbox("Bold", key=bold_key)
+            st.checkbox("Italic", key=italic_key)
+            st.checkbox("Strikethrough", key=strikethrough_key)
             st.checkbox("Underline", key=underline_key)
             st.checkbox("Code", key=code_key)
 
             # Dropdown for color selection
             color_key = f"color_{idx}"
-            st.selectbox("Select text color", notion_colors, key=color_key)
+            st.selectbox("Select text color", NOTION_COLORS, key=color_key)
 
     # Generate blocks JSON automatically
     blocks = []
@@ -292,6 +309,8 @@ elif pages == "Construct Notion Blocks":
         if content:
             annotations = {
                 'bold': st.session_state.get(f"bold_{idx}", False),
+                'italic': st.session_state.get(f"italic_{idx}", False),
+                'strikethrough': st.session_state.get(f"strikethrough_{idx}", False),
                 'underline': st.session_state.get(f"underline_{idx}", False),
                 'code': st.session_state.get(f"code_{idx}", False),
                 'color': st.session_state.get(f"color_{idx}", 'default')
@@ -328,7 +347,7 @@ elif pages == "Construct Notion Blocks":
                     }
                 })
             elif block_type == 'Bulleted List':
-                items = content.split('\n')
+                items = [item.strip() for item in content.split('\n') if item.strip()]
                 for item in items:
                     blocks.append({
                         "object": "block",
@@ -338,12 +357,13 @@ elif pages == "Construct Notion Blocks":
                                 "type": "text",
                                 "text": {
                                     "content": item
-                                }
+                                },
+                                'annotations': annotations
                             }]
                         }
                     })
             elif block_type == 'Numbered List':
-                items = content.split('\n')
+                items = [item.strip() for item in content.split('\n') if item.strip()]
                 for item in items:
                     blocks.append({
                         "object": "block",
@@ -353,12 +373,13 @@ elif pages == "Construct Notion Blocks":
                                 "type": "text",
                                 "text": {
                                     "content": item
-                                }
+                                },
+                                'annotations': annotations
                             }]
                         }
                     })
             elif block_type == 'To-do':
-                items = content.split('\n')
+                items = [item.strip() for item in content.split('\n') if item.strip()]
                 for item in items:
                     blocks.append({
                         "object": "block",
@@ -368,7 +389,8 @@ elif pages == "Construct Notion Blocks":
                                 "type": "text",
                                 "text": {
                                     "content": item
-                                }
+                                },
+                                'annotations': annotations
                             }],
                             "checked": False  # Modify as needed
                         }
@@ -382,10 +404,12 @@ elif pages == "Construct Notion Blocks":
                             "type": "text",
                             "text": {
                                 "content": content
-                            }
+                            },
+                            'annotations': annotations
                         }],
                         "children": [
                             {
+                                "object": "block",
                                 "type": "paragraph",
                                 "paragraph": {
                                     "rich_text": [
@@ -402,6 +426,7 @@ elif pages == "Construct Notion Blocks":
                 })
             elif block_type == 'Code':
                 blocks.append({
+                    "object": "block",
                     "type": "code",
                     "code": {
                         "caption": [],
@@ -420,4 +445,4 @@ elif pages == "Construct Notion Blocks":
     with st.container(height=300, border=True):
         st.json(blocks)
     st.write("**Code** for easy copy")
-    st.code(blocks, language='json', line_numbers=True, wrap_lines=True)
+    st.code(json.dumps(blocks, indent=2), language='json', line_numbers=True, wrap_lines=True)
